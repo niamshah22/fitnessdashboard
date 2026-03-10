@@ -273,7 +273,7 @@ RECENT WORKOUTS: ${workouts.slice(0, 5).map(w => `${w.date} ${w.type} ${w.durati
       const data  = await res.json();
       const reply = data.content?.map(b => b.text || "").join("") || "Could not get a response.";
       setMessages(p => [...p, { role: "assistant", content: reply }]);
-    } catch {
+    } catch (e) {
       setMessages(p => [...p, { role: "assistant", content: "Connection error." }]);
     }
     setChatLoading(false);
@@ -458,7 +458,7 @@ RECENT WORKOUTS: ${workouts.slice(0, 5).map(w => `${w.date} ${w.type} ${w.durati
               </div>
             </Card>
           </div>
-        i}
+        )}
 
         {/* ── NUTRITION ── */}
         {tab === "nutrition" && (
