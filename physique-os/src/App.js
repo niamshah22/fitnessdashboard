@@ -3,7 +3,7 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cartesia
 
 // ── Google Sheets config ──────────────────────────────────────────────────────
 const SHEET_ID  = "1GFHDfNERLpVwrs5MM8OyXRhSEsZbbdfzXX_H4QsF4BA";
-const SHEETS_KEY = "AIzaSyDJ2sS4eMJAW9yjbzxkOpJF17IVS1UnljE";
+const SHEETS_KEY = "AIzaSyDJ2sS4eMJAW9yjbzxkOpJF17lVS1UnljE";
 const BASE_URL  = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
