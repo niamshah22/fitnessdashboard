@@ -53,6 +53,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
   .hdr-status{display:none!important}
   .hdr-inner{padding:0 12px!important;height:52px!important}
   .hdr-logo-text{font-size:16px!important}
+  .wk-row{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .wk-row .wk-exercises{display:none!important}
+  .ex-grid{grid-template-columns:32px 1fr 1fr 40px!important}
+  .fl-meal-macros{grid-template-columns:repeat(2,1fr)!important}
 }
 `;
 
@@ -271,6 +275,90 @@ const Photo = ({ photo, size = 160, selected, onClick }) => (
     border: selected ? `2px solid ${T.teal}` : `1px solid ${T.border}`,
     transition: "all .2s", transform: selected ? "scale(1.02)" : "scale(1)", position: "relative" }}>
     <div style={{ height: size, background: `linear-gradient(160deg, ${photo.color || "#0a2020"} 0%, #07070f 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      {photo.file_url
+        ? <img src={photo.file_url} alt={photo.date} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : <div style={{ textAlign: "center", padding: 8 }}>
+            <div style={{ fontSize: 28, opacity: 0.2 }}>📷</div>
+            <div style={{ ...mono, fontSize: 9, color: T.textDim, marginTop: 4 }}>{photo.date}</div>
+          </div>
+      }
+    </div>
+    <div style={{ padding: "8px 12px", background: T.surface, borderTop: `1px solid ${T.border}` }}>
+      <div style={{ ...mono, fontSize: 10, color: T.textMid }}>{photo.date}</div>
+      {photo.weight > 0 && <div style={{ ...bebas, fontSize: 14, color: T.teal, lineHeight: 1.2 }}>{photo.weight}kg · {photo.fat}%bf</div>}
+    </div>
+  </div>
+);
+
+// ── ProgressBar ───────────────────────────────────────────────────────────────
+const ProgressBar = ({ label, value, target, unit, color }) => {
+  const pct = Math.min(target > 0 ? (value / target) * 100 : 0, 100);
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+        <span style={{ ...mono, fontSize: 11, color: T.textDim, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
+        <span style={{ ...mono, fontSize: 11, color }}>
+          {value}<span style={{ color: T.textDim, fontSize: 10 }}>{unit}</span>
+          <span style={{ color: T.textDim }}> / {target}{unit}</span>
+        </span>
+      </div>
+      <div style={{ height: 5, background: T.border, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width .5s ease" }} />
+      </div>
+    </div>
+  );
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmtTime = s => `${String(Math.floor(s / 3600)).padStart(2,"0")}:${String(Math.floor((s % 3600) / 60)).padStart(2,"0")}:${String(s % 60).padStart(2,"0")}`;
+const fmtNum  = n => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+const avg     = (arr, key) => arr.length === 0 ? 0 : Math.round(arr.reduce((s, r) => s + (r[key] || 0), 0) / arr.length);
+
+const PHOTO_COLORS = ["#0d2b2b","#0d1e35","#200d2b","#2b2200","#100d22","#00221d","#220d0d","#0d220d","#2b1a00","#0d1a2b"];
+
+// ── App ───────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [tab,           setTab]           = useState("overview");
+  const [weightData,    setWeightData]    = useState([]);
+  const [checkins,      setCheckins]      = useState([]);
+  const [stepsData,     setStepsData]     = useState([]);
+  const [nutritionData, setNutritionData] = useState([]);
+  const [workouts,      setWorkouts]      = useState([]);
+  const [photos,        setPhotos]        = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [fetchError,    setFetchError]    = useState("");
+  const [photoView,     setPhotoView]     = useState("grid");
+  const [compareA,      setCompareA]      = useState(0);
+  const [compareB,      setCompareB]      = useState(1);
+  const [sliderPos,     setSliderPos]     = useState(50);
+  const [ci,       setCi]       = useState({ mood: 7, sleep: 7.5, energy: 7, stress: 4, water: 2.5, notes: "" });
+  const [ciSaving, setCiSaving] = useState(false);
+  const [ciDone,   setCiDone]   = useState(false);
+  const [messages,    setMessages]    = useState([{ role: "assistant", content: "Hi! I'm your AI physique coach. I have access to all your data — ask me anything about your progress, training, or nutrition." }]);
+  const [chatInput,   setChatInput]   = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEnd = useRef(null);
+  const [wlExercises, setWlExercises] = useState([]);
+  const [wlType,      setWlType]      = useState("Push");
+  const [wlMuscle,    setWlMuscle]    = useState("Chest");
+  const [wlStartTime, setWlStartTime] = useState(null);
+  const [wlElapsed,   setWlElapsed]   = useState(0);
+  const [wlSaving,    setWlSaving]    = useState(false);
+  const [wlSaved,     setWlSaved]     = useState(false);
+  const [flMeals,  setFlMeals]  = useState([]);
+  const [flInput,  setFlInput]  = useState("");
+  const flTargets = { calories: 2200, protein: 175, carbs: 250, fat: 75 };
+
+  // ── Fetch from Google Sheets ───────────────────────────────────────────────
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const sheets = ["body!A:E","checkins!A:G","steps!A:B","nutrition!A:E","workouts!A:E","photos!A:D"];
+        const results = await Promise.all(
+          sheets.map(s => fetch(`${BASE_URL}/${encodeURIComponent(s)}?key=${SHEETS_KEY}`).then(r => r.json()))
+        );
+        const [wRaw, cRaw, sRaw, nRaw, wkRaw, pRaw] = results.map(j =>
  (j.values || []).slice(1));
 
         setWeightData(wRaw
@@ -679,12 +767,12 @@ TODAY'S FOOD LOG: ${flMeals.length ? flMeals.map(m => `${m.time} ${m.text} (${m.
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {workouts.map((w, i) => (
-                  <Card key={i} style={{ display: "grid", gridTemplateColumns: "100px 65px 65px 70px 1fr", alignItems: "center", gap: 14, padding: "14px 20px" }}>
+                  <Card key={i} className="wk-row" style={{ display: "grid", gridTemplateColumns: "100px 65px 65px 70px 1fr", alignItems: "center", gap: 14, padding: "14px 20px" }}>
                     <div style={{ ...mono, fontSize: 12, color: T.textMid }}>{w.date}</div>
                     <Tag type={w.type} />
                     <div style={{ ...mono, fontSize: 12, color: T.textMid }}>{w.duration}m</div>
                     <div style={{ ...mono, fontSize: 12, color: T.textMid }}>{(w.volume / 1000).toFixed(1)}k kg</div>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    <div className="wk-exercises" style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {w.exercises.slice(0, 3).map((ex, j) => (
                         <span key={j} style={{ fontSize: 12, color: T.textDim, background: T.surfaceAlt, borderRadius: 5, padding: "2px 8px" }}>{ex}</span>
                       ))}
